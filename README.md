@@ -3,5 +3,5 @@ SAN Spectrum is a utility script built to simplify the peer review process and e
 Key Features:
 Comprehensive Auditing: Extracts certificate slots, types, and expiry dates.
 DNS Verification: Compares SAN entries across both staging and production networks.
-User-Friendly: Simply enter your switch key and enrollment ID to generate a complete audit report.# Scripts
-Audit on Origin certificate status
+User-Friendly: Simply enter your switch key and enrollment ID to generate a complete audit report.
+Performance: Generates complete audit within 3–5 seconds.
