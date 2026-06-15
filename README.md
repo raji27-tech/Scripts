@@ -1,13 +1,14 @@
-Tool --1. SAN Spectrum is a utility script built to simplify the peer review process and eliminate human error when auditing Akamai Edge certificates.
+######## Tool --1. SAN Spectrum is a utility script built to simplify the peer review process and eliminate human error when auditing Akamai Edge certificates.
 
 Key Features:
+
 1.Comprehensive Auditing: Extracts certificate slots, types, and expiry dates.
 2. DNS Verification: Compares SAN entries across both staging and production networks.
 3. User-Friendly: Simply enter your switch key and enrollment ID to generate a complete audit report.
 4. Performance: Generates complete audit within 3–5 seconds.
 
 
-Tool --2
+####### Tool --2
 Origin Pulse is an auditing utility designed to verify origin certificate statuses within Akamai Property Manager configurations across any account.
 
 Key Features:
