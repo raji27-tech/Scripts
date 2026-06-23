@@ -10,19 +10,19 @@ from akamai.edgegrid import EdgeGridAuth
 session = requests.Session()
 
 # Host gateway connection point
-AKAMAI_HOST = "akab-x3w2uf72jso4owfn-mvw3wpwac5urwwqu.luna.akamaiapis.net"
+AKAMAI_HOST = "xxx.akamaiapis.net"
 
 session.auth = EdgeGridAuth(
-    client_token="akab-45luo5oc246thnit-fcgh3ypaldplnxwn",
-    client_secret="7fjBATpRjvDOVZLLv3wAKxevrYIZmZXRjMg1JRwJpF8=",
-    access_token="akab-7t7zuu4riy5pr7ni-z5qy44mk5mg65bki"
+    client_token="xxxx",
+    client_secret="xxxxx",
+    access_token="xxxxx"
 )
 
 # -------------------------------------------------------------
 # 2. TARGET CONFIGURATION DEFINITIONS
 # -------------------------------------------------------------
-TARGET_PROPERTY_NAME = "Ecarts_Non-Prod"
-SWITCH_KEY = "F-AC-1787020:1-2RBL"
+TARGET_PROPERTY_NAME = "PM_config"
+SWITCH_KEY = "xxxxx"
 CHANGE_MANAGEMENT_NOTE = "SYF-794 | Bulk updated to upload certificates in origin behavior"
 
 PAPI_PARAMS = {"accountSwitchKey": SWITCH_KEY}
