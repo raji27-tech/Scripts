@@ -42,7 +42,7 @@ SYF-794BUlkFinal.py has script which helps to do bulk update for every origin se
 ########### Tool --4
 AkaOriginMapper 
 
-# OriginScope 🎯
+# AkaOriginMapper 🎯
 > Automated Akamai Property Manager (PAPI) Hostname & Origin Exporter
 OriginScope is a Python utility designed to audit Akamai Property Manager configurations across a specific Group and Contract. It recursively traverses rule trees to map all edge hostnames and their corresponding origin servers (including default behaviors and child-rule path overrides), then exports a formatted Excel report.
 # Key Features
