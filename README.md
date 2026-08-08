@@ -39,7 +39,7 @@ SYF-794BUlkFinal.py has script which helps to do bulk update for every origin se
 & Third Party Certificate Store) under "Akamai-managed Certificate Authority Sets".
 
 
-########### Tool --4
+########### Tool --3
 AkaOriginMapper 
 
 # AkaOriginMapper 🎯
@@ -60,3 +60,11 @@ OriginScope is a Python utility designed to audit Akamai Property Manager config
 # Prerequisites
 * Python 3.8+
 * Active Akamai API credentials configured in `~/.edgerc` with Property Manager (PAPI) **Read-Only** or **Read-Write** scope.
+
+
+########### Script --4
+SYF-794 Bulk property update.
+Upload origin certificates in each & every origin behavior under "Custom Certifcate Authority Set"
+Also set, "Trust" option to Satisfy any of the option Below & enable Both the options( Akamai Certificate Store & Third Party Certificate Store) in "Akamai-managed Certificate Authority Sets".
+
+ 
