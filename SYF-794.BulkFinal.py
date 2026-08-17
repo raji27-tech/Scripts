@@ -10,12 +10,12 @@ from akamai.edgegrid import EdgeGridAuth
 session = requests.Session()
 
 # Host gateway connection point
-AKAMAI_HOST = "akab-x3w2uf72jso4owfn-mvw3wpwac5urwwqu.luna.akamaiapis.net"
+AKAMAI_HOST = "xxxx"
 
 session.auth = EdgeGridAuth(
-    client_token="akab-qaznsfvzbrq5cnnq-rotkxfhe5ymu4qif",
-    client_secret="fYOHH11RH7jepbkZjVb2CujZxleMLAb0uE/nXPrNu3Y=",
-    access_token="akab-7t7zuu4riy5pr7ni-z5qy44mk5mg65bki"
+    client_token="xxx",
+    client_secret="xxxx",
+    access_token="xxxx"
 )
 
 # -------------------------------------------------------------
