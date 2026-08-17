@@ -27,7 +27,7 @@ TARGET_PROPERTY_NAMES = [
        "Ecarts_Non-Prod"
 ]
 
-SWITCH_KEY = "F-AC-1787020:1-2RBL"
+SWITCH_KEY = "xxxx"
 CHANGE_MANAGEMENT_NOTE = "SYF-794 | Bulk updated to upload certificates in origin behavior"
 
 # -------------------------------------------------------------
