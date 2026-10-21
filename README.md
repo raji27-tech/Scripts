@@ -69,7 +69,10 @@ Also set, "Trust" option to Satisfy any of the option Below & enable Both the op
 
 
 ########## Script ---5
-audit_custom_origin_certs
+audit_custom_origin_certs  (Origin cert upload audit for all the properties under particular group)
 
 This script automates the auditing of Akamai property configurations to ensure custom origin certificates are correctly applied. By providing an Account Switch Key and Group ID, the script dynamically scans origin behaviors across all properties, verifies the presence of required custom certificates (by subjectCN), and exports a detailed CSV report showing active Staging/Prod versions and any missing certificates.
- 
+
+ ######### Script --- 6 
+ Audit_CustomCertOrigin_ForAccount (Origin cert upload audit for whole account)
+This script is extension of Script 5.
