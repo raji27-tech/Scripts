@@ -78,17 +78,14 @@ This script automates the auditing of Akamai property configurations to ensure c
 This script is extension of Script 5.
 
 
-################# Script 7
-Edge Hostname Matrix 
-Edge Hostname Matrix cross-references Akamai HAPI (Edge Hostnames API) and PAPI (Property Manager API) to provide a complete infrastructure and routing audit for any target Edge Hostnames:
-DNS & Infrastructure Metrics: Extracts the configured DNS TTL, certificate/hardware Slot Number, and the assigned Akamai deployment Map.
+## Script 7: Edge Hostname Matrix
 
-Security Profile: Identifies the network security level (e.g., ENHANCED-TLS, STANDARD-TLS).
+Cross-references Akamai HAPI (Edge Hostnames API) and PAPI (Property Manager API) to provide a complete infrastructure and routing audit for target Edge Hostnames.
 
-Account Hierarchy: Discovers which Akamai Group (both Group Name and Group ID) owns each Edge Hostname.
-
-Property Manager Integration: Identifies the specific Property Manager configuration name, Property ID, and its currently active Production and Staging version numbers.
-
-Public Domain Mapping (Tied Hostnames): Resolves all customer-facing public CNAMEs (cnameFrom) routing traffic to that specific Edge Hostname (cnameTo).
-
-Reporting & Export: Formats results in a real-time terminal audit view and exports the complete dataset directly to edge_hostname_audit_report.csv.
+### Audited Data Points
+- **DNS & Infrastructure Metrics:** Extracts configured DNS TTL, certificate/hardware Slot Number, and assigned Akamai deployment Map.
+- **Security Profile:** Identifies network security levels (e.g., `ENHANCED-TLS`, `STANDARD-TLS`).
+- **Account Hierarchy:** Discovers which Akamai Group (Name and Group ID) owns each Edge Hostname.
+- **Property Manager Integration:** Identifies Property Manager configuration name, Property ID, and active Production/Staging version numbers.
+- **Public Domain Mapping:** Resolves customer-facing public CNAMEs (`cnameFrom`) routing traffic to the target Edge Hostname (`cnameTo`).
+- **Reporting & Export:** Formats results in a real-time terminal audit view and exports data directly to `edge_hostname_audit_report.csv`.
