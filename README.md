@@ -84,6 +84,7 @@ Origin certificate upload audit across the entire account. An extension of **Scr
 ## Script 7: Edge Hostname Matrix
 
 Cross-references Akamai HAPI (Edge Hostnames API) and PAPI (Property Manager API) to provide a complete infrastructure and routing audit for target Edge Hostnames.
+Required inputs: Account siwtch key & List of Edge hostnames (either paste it or Enter path to your EHNs file
 
 ### Audited Data Points
 - **DNS & Infrastructure Metrics:** Extracts configured DNS TTL, certificate/hardware Slot Number, and assigned Akamai deployment Map.
