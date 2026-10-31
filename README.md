@@ -61,22 +61,25 @@ OriginScope is a Python utility designed to audit Akamai Property Manager config
 * Python 3.8+
 * Active Akamai API credentials configured in `~/.edgerc` with Property Manager (PAPI) **Read-Only** or **Read-Write** scope.
 
+## Script 4: SYF-794 Bulk Property Update
 
-########### Script --4
-SYF-794 Bulk property update.
-Upload origin certificates in each & every origin behavior under "Custom Certifcate Authority Set"
-Also set, "Trust" option to Satisfy any of the option Below & enable Both the options( Akamai Certificate Store & Third Party Certificate Store) in "Akamai-managed Certificate Authority Sets".
+Uploads origin certificates in every origin behavior under **Custom Certificate Authority Set**. Sets the **Trust** option to *"Satisfy any of the options below"* and enables both options (**Akamai Certificate Store** & **Third Party Certificate Store**) in **Akamai-managed Certificate Authority Sets**.
 
+---
 
-########## Script ---5
-audit_custom_origin_certs  (Origin cert upload audit for all the properties under particular group)
+## Script 5: audit_custom_origin_certs
 
-This script automates the auditing of Akamai property configurations to ensure custom origin certificates are correctly applied. By providing an Account Switch Key and Group ID, the script dynamically scans origin behaviors across all properties, verifies the presence of required custom certificates (by subjectCN), and exports a detailed CSV report showing active Staging/Prod versions and any missing certificates.
+Origin certificate upload audit for all properties under a specific group.
 
- ######### Script --- 6 
- Audit_CustomCertOrigin_ForAccount (Origin cert upload audit for whole account)
-This script is extension of Script 5.
+Automates the auditing of Akamai property configurations to ensure custom origin certificates are correctly applied. Given an Account Switch Key and Group ID, the script dynamically scans origin behaviors across all properties, verifies required custom certificates (by `subjectCN`), and exports a detailed CSV report showing active Staging/Prod versions and any missing certificates.
 
+---
+
+## Script 6: Audit_CustomCertOrigin_ForAccount
+
+Origin certificate upload audit across the entire account. An extension of **Script 5** that sweeps across all groups in an account.
+
+---
 
 ## Script 7: Edge Hostname Matrix
 
