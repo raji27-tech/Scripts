@@ -1,0 +1,391 @@
+import csv
+import os
+import re
+import sys
+import requests
+from akamai.edgegrid import EdgeGridAuth, EdgeRc
+
+
+KNOWN_ZONES = [
+    "edgekey.net",
+    "edgesuite.net",
+    "akamaiedge.net",
+    "akamaized.net",
+    "edgekey-staging.net",
+    "edgesuite-staging.net",
+    "akamaiedge-staging.net",
+]
+
+
+def sanitize_hostname(raw_str):
+    """Strip hidden Unicode bytes (BOM, NBSP, zero-width chars), quotes, spaces, and trailing dots."""
+    if not raw_str:
+        return ""
+    # Strip non-ASCII/control characters like \ufeff, \xa0, \u200b
+    clean = re.sub(r"[^\x20-\x7E]", "", raw_str)
+    return clean.strip().strip("'\"").strip().rstrip(".").lower()
+
+
+def initialize_session(section="default"):
+    """Initialize Akamai EdgeGrid authenticated requests Session."""
+    edgerc_path = os.path.expanduser("~/.edgerc")
+    if not os.path.exists(edgerc_path):
+        print(f"[-] Error: Akamai credentials file not found at {edgerc_path}")
+        sys.exit(1)
+
+    try:
+        edgerc = EdgeRc(edgerc_path)
+        base_url = f"https://{edgerc.get(section, 'host')}"
+        session = requests.Session()
+        session.auth = EdgeGridAuth.from_edgerc(edgerc, section)
+        return session, base_url
+    except Exception as e:
+        print(f"[-] Error loading Akamai credentials: {e}")
+        sys.exit(1)
+
+
+def get_groups_map(session, base_url, params):
+    """Fetch all groups in the account to map groupId to groupName."""
+    groups_map = {}
+    url = f"{base_url}/papi/v1/groups"
+    try:
+        resp = session.get(url, params=params)
+        if resp.status_code == 200:
+            for g in resp.json().get("groups", {}).get("items", []):
+                groups_map[g.get("groupId")] = g.get("groupName")
+    except Exception as e:
+        print(f"[-] Warning: Failed to fetch group names: {e}")
+    return groups_map
+
+
+def split_ehn_zone(ehn):
+    """Split an Edge Hostname into (recordName, dnsZone)."""
+    clean_ehn = sanitize_hostname(ehn)
+    for zone in KNOWN_ZONES:
+        if clean_ehn.endswith("." + zone):
+            record = clean_ehn[: -(len(zone) + 1)]
+            return record, zone
+    parts = clean_ehn.split(".", 1)
+    if len(parts) == 2:
+        return parts[0], parts[1]
+    return clean_ehn, "edgekey.net"
+
+
+def get_hapi_edge_hostnames(session, base_url, params):
+    """Fetch account edge hostnames from HAPI and register canonical forms."""
+    print("[+] Querying HAPI for bulk Edge Hostname metadata...")
+    ehn_map = {}
+    url = f"{base_url}/hapi/v1/edge-hostnames"
+    try:
+        resp = session.get(url, params=params)
+        if resp.status_code == 200:
+            for item in resp.json().get("edgeHostnames", []):
+                record = sanitize_hostname(item.get("recordName", ""))
+                zone = sanitize_hostname(item.get("dnsZone", ""))
+
+                if zone and not record.endswith("." + zone):
+                    full_ehn = f"{record}.{zone}".rstrip(".")
+                else:
+                    full_ehn = record.rstrip(".")
+
+                map_val = item.get("map")
+                if not map_val and item.get("useDefaultMap"):
+                    map_val = "Default Map"
+                elif not map_val:
+                    map_val = "N/A"
+
+                meta = {
+                    "edgeHostnameId": item.get("edgeHostnameId"),
+                    "ttl": item.get("ttl", "N/A"),
+                    "slotNumber": item.get("slotNumber", "N/A"),
+                    "map": map_val,
+                    "securityType": item.get("securityType", "N/A"),
+                    "groupId": item.get("groupId"),
+                }
+                ehn_map[full_ehn] = meta
+                ehn_map[record] = meta
+    except Exception as e:
+        print(f"[-] Warning: Failed to fetch bulk HAPI data: {e}")
+    return ehn_map
+
+
+def query_direct_hapi(session, base_url, ehn, params):
+    """Direct point lookup fallback if omitted from the bulk HAPI list."""
+    record_name, dns_zone = split_ehn_zone(ehn)
+    url = f"{base_url}/hapi/v1/dns-zones/{dns_zone}/edge-hostnames/{record_name}"
+    try:
+        resp = session.get(url, params=params)
+        if resp.status_code == 200:
+            item = resp.json()
+            map_val = item.get("map")
+            if not map_val and item.get("useDefaultMap"):
+                map_val = "Default Map"
+            elif not map_val:
+                map_val = "N/A"
+
+            return {
+                "edgeHostnameId": item.get("edgeHostnameId"),
+                "ttl": item.get("ttl", "N/A"),
+                "slotNumber": item.get("slotNumber", "N/A"),
+                "map": map_val,
+                "securityType": item.get("securityType", "N/A"),
+                "groupId": item.get("groupId"),
+            }
+    except Exception:
+        pass
+    return None
+
+
+def get_property_active_versions(session, base_url, prop_id, params):
+    """Fetch active Staging and Production versions for a property."""
+    url = f"{base_url}/papi/v1/properties/{prop_id}"
+    staging_version = "None"
+    production_version = "None"
+
+    try:
+        resp = session.get(url, params=params)
+        if resp.status_code == 200:
+            p_data = resp.json().get("properties", {}).get("items", [{}])[0]
+            staging_version = (
+                str(p_data.get("stagingVersion"))
+                if p_data.get("stagingVersion")
+                else "None"
+            )
+            production_version = (
+                str(p_data.get("productionVersion"))
+                if p_data.get("productionVersion")
+                else "None"
+            )
+    except Exception:
+        pass
+
+    return staging_version, production_version
+
+
+def get_tied_hostnames(
+    session, base_url, prop_id, version, target_ehn, contract_id, group_id, params
+):
+    """Fetch hostnames assigned in a property version routing through target_ehn."""
+    url = f"{base_url}/papi/v1/properties/{prop_id}/versions/{version}/hostnames"
+    req_params = params.copy()
+    if contract_id:
+        req_params["contractId"] = contract_id
+    if group_id:
+        req_params["groupId"] = group_id
+
+    tied = []
+    try:
+        resp = session.get(url, params=req_params)
+        if resp.status_code == 200:
+            items = resp.json().get("hostnames", {}).get("items", [])
+            for h in items:
+                cname_to = sanitize_hostname(h.get("cnameTo", ""))
+                if cname_to == target_ehn:
+                    tied.append(h.get("cnameFrom"))
+    except Exception:
+        pass
+    return tied
+
+
+def load_hostnames_from_file(file_path):
+    """Read hostnames from a text or CSV file, handling BOM and invisible bytes."""
+    expanded_path = os.path.expanduser(file_path.strip().strip("'\""))
+    if not os.path.isfile(expanded_path):
+        print(f"[-] Error: File not found at '{expanded_path}'")
+        return []
+
+    hostnames = []
+    try:
+        # utf-8-sig automatically strips UTF-8 BOM headers
+        with open(expanded_path, "r", encoding="utf-8-sig", errors="ignore") as f:
+            for line in f:
+                for part in line.replace("\t", ",").split(","):
+                    clean = sanitize_hostname(part)
+                    if clean and not clean.startswith("#") and clean not in hostnames:
+                        hostnames.append(clean)
+    except Exception as e:
+        print(f"[-] Error reading file: {e}")
+        return []
+
+    return hostnames
+
+
+def collect_edge_hostnames():
+    """Prompt user to choose between direct input or reading from a file."""
+    print("\nHow would you like to provide the Edge Hostnames?")
+    print("  [1] Enter / paste comma-separated Edge Hostnames")
+    print("  [2] Provide path to a file/document containing Edge Hostnames")
+
+    while True:
+        choice = input("Select an option (1 or 2): ").strip()
+        if choice in ["1", "2"]:
+            break
+        print("[-] Invalid choice. Please enter 1 or 2.")
+
+    edge_hostnames = []
+
+    if choice == "1":
+        while True:
+            raw_input = input("\nEnter Edge Hostnames (comma-separated): ").strip()
+            if raw_input:
+                for item in raw_input.split(","):
+                    clean = sanitize_hostname(item)
+                    if clean and clean not in edge_hostnames:
+                        edge_hostnames.append(clean)
+                if edge_hostnames:
+                    break
+            print("[-] No valid Edge Hostnames entered. Please try again.")
+
+    elif choice == "2":
+        while True:
+            file_path = input("\nEnter path to file: ").strip()
+            edge_hostnames = load_hostnames_from_file(file_path)
+            if edge_hostnames:
+                print(f"[+] Loaded {len(edge_hostnames)} Edge Hostnames from file.")
+                break
+            print("[-] No valid hostnames could be loaded. Please verify the file path.")
+
+    return edge_hostnames
+
+
+def main():
+    while True:
+        ask = input("Enter Account Switch Key: ").strip()
+        if ask:
+            break
+        print("[-] Account Switch Key is mandatory. Please enter a valid key.")
+
+    edge_hostnames = collect_edge_hostnames()
+
+    session, base_url = initialize_session()
+    params = {"accountSwitchKey": ask}
+
+    groups_map = get_groups_map(session, base_url, params)
+    hapi_ehn_map = get_hapi_edge_hostnames(session, base_url, params)
+
+    report_data = []
+
+    print("\n" + "=" * 80)
+    print("                     STARTING AUDIT")
+    print("=" * 80)
+
+    for ehn in edge_hostnames:
+        print(f"\n[+] Auditing: {ehn}")
+
+        # Check bulk registry; run targeted direct query if omitted
+        metadata = hapi_ehn_map.get(ehn)
+        if not metadata:
+            metadata = query_direct_hapi(session, base_url, ehn, params) or {}
+
+        ttl = metadata.get("ttl", "Not Found in Account")
+        slot_number = metadata.get("slotNumber", "N/A")
+        ehn_map_val = metadata.get("map", "Not Found in Account")
+        security_type = metadata.get("securityType", "Not Found in Account")
+        hapi_group_id = metadata.get("groupId")
+
+        # Search PAPI configurations
+        search_url = f"{base_url}/papi/v1/search/find-by-value"
+        search_resp = session.post(
+            search_url, json={"edgeHostname": ehn}, params=params
+        )
+
+        papi_versions = []
+        if search_resp.status_code == 200:
+            papi_versions = search_resp.json().get("versions", {}).get("items", [])
+
+        if not papi_versions:
+            group_name = groups_map.get(hapi_group_id, "N/A") if hapi_group_id else "N/A"
+            record = {
+                "Edge Hostname": ehn,
+                "Security": security_type,
+                "Map": ehn_map_val,
+                "DNS TTL": ttl,
+                "Slot Number": slot_number,
+                "Group ID": hapi_group_id or "N/A",
+                "Group Name": group_name,
+                "Property Name": "Not associated with any Property",
+                "Property ID": "N/A",
+                "Staging Version": "N/A",
+                "Production Version": "N/A",
+                "Tied Hostnames": "N/A",
+            }
+            report_data.append(record)
+            continue
+
+        properties_seen = {}
+        for v in papi_versions:
+            pid = v.get("propertyId")
+            if pid not in properties_seen:
+                properties_seen[pid] = v
+
+        for pid, p_info in properties_seen.items():
+            prop_name = p_info.get("propertyName")
+            contract_id = p_info.get("contractId")
+            group_id = p_info.get("groupId")
+            group_name = groups_map.get(group_id, "Unknown Group")
+
+            staging_ver, prod_ver = get_property_active_versions(
+                session, base_url, pid, params
+            )
+
+            target_inspect_version = (
+                prod_ver
+                if prod_ver != "None"
+                else (staging_ver if staging_ver != "None" else p_info.get("propertyVersion"))
+            )
+
+            tied_hostnames = get_tied_hostnames(
+                session,
+                base_url,
+                pid,
+                target_inspect_version,
+                ehn,
+                contract_id,
+                group_id,
+                params,
+            )
+
+            record = {
+                "Edge Hostname": ehn,
+                "Security": security_type,
+                "Map": ehn_map_val,
+                "DNS TTL": ttl,
+                "Slot Number": slot_number,
+                "Group ID": group_id,
+                "Group Name": group_name,
+                "Property Name": prop_name,
+                "Property ID": pid,
+                "Staging Version": staging_ver,
+                "Production Version": prod_ver,
+                "Tied Hostnames": ", ".join(tied_hostnames) if tied_hostnames else "None (Not mapped in active version)",
+            }
+            report_data.append(record)
+
+    # Display results
+    print("\n" + "=" * 80)
+    print("                         AUDIT REPORT")
+    print("=" * 80)
+
+    for item in report_data:
+        print(f"Edge Hostname      : {item['Edge Hostname']}")
+        print(f"Security           : {item['Security']}")
+        print(f"Map                : {item['Map']}")
+        print(f"DNS TTL            : {item['DNS TTL']}")
+        print(f"Slot Number        : {item['Slot Number']}")
+        print(f"Group              : {item['Group Name']} ({item['Group ID']})")
+        print(f"Property Config    : {item['Property Name']} (ID: {item['Property ID']})")
+        print(f"Active Versions    : Staging: {item['Staging Version']} | Production: {item['Production Version']}")
+        print(f"Tied Hostnames     : {item['Tied Hostnames']}")
+        print("-" * 80)
+
+    output_filename = "edge_hostname_audit_report.csv"
+    with open(output_filename, mode="w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=report_data[0].keys())
+        writer.writeheader()
+        writer.writerows(report_data)
+
+    print(f"\n[+] Full report saved to: {os.path.abspath(output_filename)}")
+
+
+if __name__ == "__main__":
+    main()
